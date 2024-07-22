@@ -71,6 +71,7 @@ func NewLoader(name string, updateFunc func(int64), filPath string, ch chan *ent
 // return repl stream db id
 func (ld *Loader) ParseRDB(ctx context.Context) int {
 	var err error
+	// 打开RDB文件
 	ld.fp, err = os.OpenFile(ld.filPath, os.O_RDONLY, 0666)
 	if err != nil {
 		log.Panicf("open file failed. file_path=[%s], error=[%s]", ld.filPath, err)

@@ -21,11 +21,14 @@ import (
 )
 
 func main() {
+	// 加载配置
 	v := config.LoadConfig()
 
 	log.Init(config.Opt.Advanced.LogLevel, config.Opt.Advanced.LogFile, config.Opt.Advanced.Dir)
 	utils.ChdirAndAcquireFileLock()
+	// 设置GOMAXPROCS
 	utils.SetNcpu()
+	// 设置pprof端口
 	utils.SetPprofPort()
 	luaRuntime := function.New(config.Opt.Function)
 
@@ -124,6 +127,7 @@ func main() {
 	ch := theReader.StartRead(ctx)
 	go waitShutdown(cancel)
 
+	// 1s ticker
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 Loop:
@@ -143,6 +147,7 @@ Loop:
 			entries := luaRuntime.RunFunction(e)
 			log.Debugf("function after: %v", entries)
 
+			// 解析entry，并写入目标端
 			for _, theEntry := range entries {
 				theEntry.Parse()
 				theWriter.Write(theEntry)

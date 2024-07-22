@@ -177,7 +177,10 @@ func (r *Redis) Send(args ...interface{}) {
 	r.flush()
 }
 
+// 干两个事，write和flush，分别是啥原理呢？
+// 这个write是基于conn创建的bufio，所以写入了bufio，相当于发送到了服务端。
 func (r *Redis) SendBytes(buf []byte) {
+	// 这个就是标准库的write，写入了bufio
 	_, err := r.writer.Write(buf)
 	if err != nil {
 		log.Panicf(err.Error())

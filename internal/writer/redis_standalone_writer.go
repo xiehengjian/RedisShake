@@ -75,16 +75,20 @@ func (w *redisStandaloneWriter) Write(e *entry.Entry) {
 	}
 
 	// send
+	// 将entry序列化成resp协议
 	bytes := e.Serialize()
+	// 如果发送的数据量超过了redis的最大查询缓冲区，则等待1ns，直到数据量小于redis的最大查询缓冲区
 	for e.SerializedSize+atomic.LoadInt64(&w.stat.UnansweredBytes) > config.Opt.Advanced.TargetRedisClientMaxQuerybufLen {
 		time.Sleep(1 * time.Nanosecond)
 	}
 	log.Debugf("[%s] send cmd. cmd=[%s]", w.stat.Name, e.String())
+
 	if !w.offReply {
 		w.chWaitReply <- e
 		atomic.AddInt64(&w.stat.UnansweredBytes, e.SerializedSize)
 		atomic.AddInt64(&w.stat.UnansweredEntries, 1)
 	}
+	// 发送resp数据
 	w.client.SendBytes(bytes)
 }
 

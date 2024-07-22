@@ -9,15 +9,16 @@ import (
 	"RedisShake/internal/log"
 )
 
+// 相当于一条redis命令
 type Entry struct {
 	DbId int      // required
 	Argv []string // required
 
-	CmdName    string
-	Group      string
-	Keys       []string
-	KeyIndexes []int
-	Slots      []int
+	CmdName    string   // 命令名
+	Group      string   // ？
+	Keys       []string // ？
+	KeyIndexes []int    // ？
+	Slots      []int    // ？
 
 	// for stat
 	SerializedSize int64

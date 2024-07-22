@@ -46,6 +46,7 @@ const (
 	kSyncAof    State = "syncing aof"
 )
 
+// 单机redis的psync同步
 type syncStandaloneReader struct {
 	ctx    context.Context
 	opts   *SyncReaderOptions
@@ -95,14 +96,23 @@ func NewSyncStandaloneReader(ctx context.Context, opts *SyncReaderOptions) Reade
 
 func (r *syncStandaloneReader) StartRead(ctx context.Context) chan *entry.Entry {
 	r.ctx = ctx
+	// 创建了一个1024的channel
 	r.ch = make(chan *entry.Entry, 1024)
+
+	// 然后开了一个goroutine，这个goroutine应该就是往channel里写数据
 	go func() {
 		r.sendReplconfListenPort()
+		// 发送psync命令
 		r.sendPSync()
+		// 接受RDB
 		rdbFilePath := r.receiveRDB()
+		// 接收AOF
 		startOffset := r.stat.AofReceivedOffset
+		// replconf ack <offset>，即向主服务器发送确认，表示slave已经处理了这些数据
 		go r.sendReplconfAck() // start sent replconf ack
+		// 接收AOF
 		go r.receiveAOF(r.rd)
+		// r.opts.SyncRdb和r.opts.SyncAof默认是true，所以就是先发送RDB，然后再发送AOF
 		if r.opts.SyncRdb {
 			r.sendRDB(rdbFilePath)
 		}
@@ -135,6 +145,7 @@ func (r *syncStandaloneReader) sendPSync() {
 		}
 	}
 	// send PSync
+	// ？表示offset未知，-1表示主服务器id未知
 	argv := []interface{}{"PSYNC", "?", "-1"}
 	if config.Opt.Advanced.AwsPSync != "" {
 		argv = []interface{}{config.Opt.Advanced.GetPSyncCommand(r.stat.Address), "?", "-1"}
@@ -318,12 +329,15 @@ func (r *syncStandaloneReader) receiveAOF(rd io.Reader) {
 func (r *syncStandaloneReader) sendRDB(rdbFilePath string) {
 	// start parse rdb
 	log.Debugf("[%s] start sending RDB to target", r.stat.Name)
+	// reader的状态变更为kSyncRdb
 	r.stat.Status = kSyncRdb
 	updateFunc := func(offset int64) {
 		r.stat.RdbSentBytes = offset
 		r.stat.RdbSentHuman = humanize.IBytes(uint64(offset))
 	}
+	// 创建一个rdbLoader
 	rdbLoader := rdb.NewLoader(r.stat.Name, updateFunc, rdbFilePath, r.ch)
+	// parse rdb
 	r.DbId = rdbLoader.ParseRDB(r.ctx)
 	log.Debugf("[%s] send RDB finished", r.stat.Name)
 	// delete file
